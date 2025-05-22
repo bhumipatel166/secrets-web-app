@@ -82,27 +82,44 @@ app.post('/register', async function (req, res) {
     // Validate Password Format
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,8}$/;
     if (!passwordRegex.test(password)) {
-        errors.push("Password must be 6-8 characters with lowercase, uppercase, and number.");
+        errors.push("Password must be 6–8 characters with lowercase, uppercase, and number.");
     }
 
     if (errors.length > 0) {
         return res.render("register", { errors, old: { name, username } });
     }
 
-    // Save to database (you should hash password here before saving)
-    const newUser = new User({ email: username, password }); // Use hashed password in production
-
     try {
+        // Check if user already exists
+        const existingUser = await User.findOne({ email: username });
+        if (existingUser) {
+            return res.render("register", {
+                errors: ["Email already registered."],
+                old: { name, username }
+            });
+        }
+
+        // ✅ Hash the password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // ✅ Save with all fields
+        const newUser = new User({
+            name,
+            email: username,
+            password: hashedPassword
+        });
+
         await newUser.save();
         res.redirect("/login");
     } catch (err) {
-        console.log(err);
+        console.error("Registration error:", err);
         res.render("register", {
             errors: ["Something went wrong, please try again."],
             old: { name, username }
         });
     }
 });
+
 
 
 app.get('/login', (req, res) => {
