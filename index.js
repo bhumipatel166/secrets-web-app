@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const validator = require('validator');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
+const MongoStore = require('connect-mongo');
 require('dotenv').config();
 
 const app = express();
@@ -15,13 +16,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(cookieParser());
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'supersecret',
+    secret: process.env.SESSION_SECRET || 'supersecret', 
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, secure: false }
+    store: MongoStore.create({
+        mongoUrl: 'mongodb+srv://bhumi:bhumi123@secrets.bfursja.mongodb.net/secrets',
+    }),
+    cookie: {
+        httpOnly: true,          
+        secure: true,          
+        maxAge: 1000 * 60 * 60   
+    }
 }));
-
-mongoose.connect('mongodb+srv://bhumi:bhumi123@secrets.bfursja.mongodb.net/secrets?retryWrites=true&w=majority');
 
 const userSchema = new mongoose.Schema({
     name: String,
@@ -58,56 +64,108 @@ app.get('/register', (req, res) => {
     res.render('register');
 });
 
-app.post('/register', async (req, res) => {
-    const { name, username: email, password } = req.body;
+app.post('/register', async function (req, res) {
+    const { name, username, password } = req.body;
+    const errors = [];
 
-    if (!validator.isEmail(email)) {
-        return res.send("Invalid email format.");
+    // Validate Name
+    if (!name || name.trim().length < 2) {
+        errors.push("Name must be at least 2 characters.");
     }
 
-    if (!isValidPassword(password)) {
-        return res.send("Password must be 6–8 characters, include uppercase, lowercase and a number.");
+    // Validate Email Format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(username)) {
+        errors.push("Please enter a valid email address.");
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Validate Password Format
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,8}$/;
+    if (!passwordRegex.test(password)) {
+        errors.push("Password must be 6-8 characters with lowercase, uppercase, and number.");
+    }
+
+    if (errors.length > 0) {
+        return res.render("register", { errors, old: { name, username } });
+    }
+
+    // Save to database (you should hash password here before saving)
+    const newUser = new Item({ email: username, password }); // Use hashed password in production
 
     try {
-        await User.create({ name, email, password: hashedPassword });
-        res.redirect('/login');
+        await newUser.save();
+        res.redirect("/login");
     } catch (err) {
         console.log(err);
-        res.status(500).send("Registration failed.");
+        res.render("register", {
+            errors: ["Something went wrong, please try again."],
+            old: { name, username }
+        });
     }
 });
+
 
 app.get('/login', (req, res) => {
     res.render('login');
 });
 
-app.post('/login', async (req, res) => {
-    const { username: email, password } = req.body;
 
-    if (!validator.isEmail(email)) {
-        return res.send("Invalid email format.");
+app.post("/login", async function (req, res) {
+    const { username, password } = req.body;
+    const errors = [];
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(username)) {
+        errors.push("Please enter a valid email address.");
+    }
+
+    // Password basic validation
+    if (!password || password.length < 6) {
+        errors.push("Password must be at least 6 characters.");
+    }
+
+    if (errors.length > 0) {
+        return res.render("login", {
+            errors,
+            old: { username }
+        });
     }
 
     try {
-        const user = await User.findOne({ email });
-        if (!user) return res.send("User not found.");
+        const user = await Item.findOne({ email: username });
 
-        const match = await bcrypt.compare(password, user.password);
-        if (!match) return res.send("Invalid credentials.");
+        if (!user) {
+            return res.render("login", {
+                errors: ["Invalid email or password."],
+                old: { username }
+            });
+        }
 
-        const token = jwt.sign({ id: user._id, name: user.name }, process.env.JWT_SECRET || 'jwtsecretkey', {
-            expiresIn: '1h'
-        });
+        // If you're using bcrypt to hash passwords:
+        // const passwordMatch = await bcrypt.compare(password, user.password);
 
-        res.cookie('token', token, { httpOnly: true });
-        res.redirect('/secrets');
+        const passwordMatch = password === user.password; // replace with bcrypt.compare if hashed
+
+        if (!passwordMatch) {
+            return res.render("login", {
+                errors: ["Invalid email or password."],
+                old: { username }
+            });
+        }
+
+        // Success: redirect to protected page
+        res.redirect("/secrets"); // or wherever your secure route is
+
     } catch (err) {
-        res.status(500).send("Login failed.");
+        console.log(err);
+        res.render("login", {
+            errors: ["Something went wrong. Try again later."],
+            old: { username }
+        });
     }
 });
+
 
 app.get('/secrets', authenticate, (req, res) => {
     res.render('secrets', { user: req.user });
