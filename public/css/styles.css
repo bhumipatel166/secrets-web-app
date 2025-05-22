@@ -1,0 +1,22 @@
+body {
+    background-color: #E8ECEF;
+}
+.centered {
+    text-align: center;
+    padding-top: 200px;
+}
+.secret-text {
+    font-size:2rem;
+    text-align: center;
+    background-color: #000000;
+    color: #ffffff;
+}
+
+input[type="text"], input[type="email"], input[type="password"]{
+    width: 100%;
+    font-size: 18px;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
