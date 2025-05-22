@@ -90,7 +90,7 @@ app.post('/register', async function (req, res) {
     }
 
     // Save to database (you should hash password here before saving)
-    const newUser = new Item({ email: username, password }); // Use hashed password in production
+    const newUser = new User({ email: username, password }); // Use hashed password in production
 
     try {
         await newUser.save();
@@ -133,7 +133,7 @@ app.post("/login", async function (req, res) {
     }
 
     try {
-        const user = await Item.findOne({ email: username });
+        const user = await User.findOne({ email: username });
 
         if (!user) {
             return res.render("login", {
