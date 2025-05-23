@@ -162,7 +162,7 @@ app.post("/login", async function (req, res) {
         // If you're using bcrypt to hash passwords:
         // const passwordMatch = await bcrypt.compare(password, user.password);
 
-        const passwordMatch = password === user.password; // replace with bcrypt.compare if hashed
+        const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
             return res.render("login", {
@@ -172,7 +172,18 @@ app.post("/login", async function (req, res) {
         }
 
         // Success: redirect to protected page
-        res.redirect("/secrets"); // or wherever your secure route is
+       const token = jwt.sign(
+            { id: user._id, name: user.name, email: user.email },
+            process.env.JWT_SECRET || 'jwtsecretkey',
+            { expiresIn: '1h' }
+        );
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true, // set to true in production with HTTPS
+            maxAge: 60 * 60 * 1000
+        });
+        res.redirect("/secrets");
+
 
     } catch (err) {
         console.log(err);
