@@ -80,9 +80,9 @@ app.post('/register', async function (req, res) {
     }
 
     // Validate Password Format
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,8}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
     if (!passwordRegex.test(password)) {
-        errors.push("Password must be 6–8 characters with lowercase, uppercase, and number.");
+        errors.push("Password must be minimum 6 characters with lowercase, uppercase, and number.");
     }
 
     if (errors.length > 0) {
