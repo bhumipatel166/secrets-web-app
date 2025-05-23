@@ -15,12 +15,19 @@ app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(cookieParser());
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://bhumi:bhumi123@secrets.bfursja.mongodb.net/secrets', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log("✅ MongoDB connected"))
+.catch((err) => console.error("❌ MongoDB connection error:", err.message));
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'supersecret', 
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-        mongoUrl: 'mongodb+srv://bhumi:bhumi123@secrets.bfursja.mongodb.net/secrets',
+        client: mongoose.connection.getClient()
     }),
     cookie: {
         httpOnly: true,          
